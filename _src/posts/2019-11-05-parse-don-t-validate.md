@@ -64,7 +64,7 @@ warning: [-Wincomplete-patterns]
     In an equation for ‘head’: Patterns not matched: []
 ```
 
-> There is an feature request for typescript where head could give a type error. Defining the return type as `A | undefined` would solve it. 
+> There is an feature request for typescript where head could give a type error. Defining the return type as `A | undefined` would solve it.
 
 This message is helpfully pointing out that our function is *partial*, which is to say it is not defined for all possible inputs. Specifically, it is not defined when the input is `[]`, the empty list. This makes sense, as it isn’t possible to return the first element of a list if the list is empty—there’s no element to return! So, remarkably, we learn this function isn’t possible to implement, either.
 
@@ -167,7 +167,7 @@ main = do
     Nothing -> error "should never happen; already checked configDirs is non-empty"
 ```
 
-When `getConfigurationDirectories` retrieves a list of file paths from the environment, it proactively checks that the list is non-empty. However, when we use `head` in `main` to get the first element of the list, the `Option FilePath` result still requires us to handle a `None` case that we know will never happen! This is terribly bad for several reasons:
+When `getConfigurationDirectories` retrieves a list of file paths from the environment, it proactively checks that the list is non-empty. However, when we use `head` in `main` to get the first element of the list, the `Option<FilePath>` result still requires us to handle a `None` case that we know will never happen! This is terribly bad for several reasons:
 
   1. First, it’s just annoying. We already checked that the list is non-empty, why do we have to clutter our code with another redundant check?
 
@@ -424,7 +424,7 @@ Here are a handful of additional points of advice, arranged in no particular ord
 
   - **Let your datatypes inform your code, don’t let your code control your datatypes.** Avoid the temptation to just stick a `Bool` in a record somewhere because it’s needed by the function you’re currently writing. Don’t be afraid to refactor code to use the right data representation—the type system will ensure you’ve covered all the places that need changing, and it will likely save you a headache later.
 
-  - **Treat functions that return `Monad void` with deep suspicion.** Sometimes these are genuinely necessary, as they may perform an imperative effect with no meaningful result, but if the primary purpose of that effect is raising an error, it’s likely there’s a better way.
+  - **Treat functions that return `Monad<void>` with deep suspicion.** Sometimes these are genuinely necessary, as they may perform an imperative effect with no meaningful result, but if the primary purpose of that effect is raising an error, it’s likely there’s a better way.
 
   - **Don’t be afraid to parse data in multiple passes.** Avoiding shotgun parsing just means you shouldn’t act on the input data before it’s fully parsed, not that you can’t use some of the input data to decide how to parse other input data. Plenty of useful parsers are context-sensitive.
 
