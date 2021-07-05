@@ -2,7 +2,7 @@
     Date: 2019-11-05T17:09:58
     Tags: functional programming, haskell, types
 
-This is a translation of Alexis's wonderful blog post to typescript. Original code snippets may be included. Assume we are using typescript with strict type checking. Some understanding of FP is required Maybe/Option, and Either. fp-ts is used where plain typescript is lacking (e.g. Either types). 
+This is a translation of Alexis's wonderful blog post to typescript. Original Haskell code snippets are included below the typescript snippets. Assume we are using typescript with strict type checking. Some understanding of FP is required Maybe/Option, and Either. fp-ts is used where plain typescript is lacking (e.g. Either types). 
 
 Intention:
 * This approach should be translatable to other languages. It may be more verbose but should be possible.
@@ -25,10 +25,12 @@ Alright, I’ll confess: unless you already know what type-driven design is, my 
 
 One of the wonderful things about strong static type systems is that they can make it possible, and sometimes even easy, to answer questions like “is it possible to write this function?” For an extreme example, consider the following type signature:
 
+**typescript**
 ```typescript
 type foo = (a: number) => void
 ```
 
+**haskell**
 ```haskell
 foo :: Integer -> Void
 ```
@@ -37,10 +39,12 @@ Is it possible to implement `foo`? Trivially, without throwing an error the answ
 
 That example is pretty boring, but the question gets much more interesting if we choose a more realistic example:
 
+**typescript**
 ```typescript
 const head = <A>(l: A[]): A => l[0]
 ```
 
+**haskell**
 ```haskell
 head :: [a] -> a
 ```
@@ -49,6 +53,7 @@ This function returns the first element from a list. Is it possible to implement
 
 > Note this  actually type checks in typescript but is still applicable.
 
+**haskell**
 ```haskell
 head :: [a] -> a
 head (x:_) = x
@@ -72,7 +77,7 @@ To someone coming from a dynamically-typed background, this might seem perplexin
 As established, `head` is partial because there is no element to return if the list is empty: we’ve made a promise we cannot possibly fulfill. Fortunately, there’s an easy solution to that dilemma: we can weaken our promise. Since we cannot guarantee the caller an element of the list, we’ll have to practice a little expectation management: we’ll do our best return an element if we can, but we reserve the right to return nothing at all. Using typescript, we express this possibility using the `Option` type:
 
 Defining Option:
-
+**typescript**
 ```typescript
 interface None {
   _tag: 'None'
@@ -93,11 +98,13 @@ const some = <A>(a: A): Option<A> => ({ _tag: 'Some', value: a })
 
 This buys us the freedom we need to implement `head`—it allows us to return `None` when we discover we can’t produce a value of type `a` after all:
 
+**typescript**
 ```typescript
 const head = <A>(l: A[]): Option<A> =>
   l[0] === undefined ? none : some(l[0]
 ```
 
+**haskell**
 ```haskell
 head :: [a] -> Maybe a
 head (x:_) = Just x
@@ -108,6 +115,7 @@ Problem solved, right? For the moment, yes… but this solution has a hidden cos
 
 Returning `Option` is undoubtably convenient when we’re *implementing*  `head`. However, it becomes significantly less convenient when we want to actually use it! Since `head` always has the potential to return `None`, the burden falls upon its callers to handle that possibility, and sometimes that passing of the buck can be incredibly frustrating. To see why, consider the following code:
 
+**typescript**
 ```typescript
 import * as A from 'fp-ts/Array'
 import { pipe } from 'fp-ts/function'
@@ -141,7 +149,7 @@ const main = (): void => {
 }
 ```
 
-
+**haskell**
 ```haskell
 getConfigurationDirectories :: IO [FilePath]
 getConfigurationDirectories = do
@@ -175,10 +183,12 @@ Clearly, our modified version of `head` leaves some things to be desired. Someho
 
 Let’s look at the original (partial) type signature for `head` again:
 
+**typescript**
 ```typescript
 const head = <A>(l: A[]): A => l[0]
 ```
 
+**haskell**
 ```haskell
 head :: [a] -> a
 ```
@@ -187,22 +197,26 @@ The previous section illustrated that we can turn that partial type signature in
 
 To do this, we need a type that represents non-empty lists. Fortunately, the existing `NonEmptyArray` type from `fp-ts/NonEmptyArray` is exactly that. It has the following definition:
 
+**typescript**
 ```typescript
 interface NonEmptyArray<A> extends Array<A> {
   0: A
 }
 ```
 
+**haskell**
 ```haskell
 data NonEmpty a = a :| [a]
 ```
 
 Note that in Haskell `NonEmpty a` is really just a tuple of an `a` and an ordinary, possibly-empty `[a]`. This conveniently models a non-empty list by storing the first element of the list separately from the list’s tail: even if the `[a]` component is `[]`, the `a` component must always be present. This makes `head` completely trivial to safely implement:[^2]
 
+**typescript**
 ```typescript
 const head = <A>(l: NonEmptyArray<A>): A => l[0]
 ```
 
+**haskell**
 ```haskell
 head :: NonEmpty a -> a
 head (x:|_) = x
@@ -212,6 +226,7 @@ head (x:|_) = x
 
 Unlike before, GHC accepts this definition without complaint—this definition is *total*, not partial. We can update our program to use the new implementation:
 
+**typescript**
 ```typescript
 import { pipe } from 'fp-ts/function'
 import * as NEA from 'fp-ts/NonEmptyArray'
@@ -239,6 +254,7 @@ const main = (): void => {
 
 TODO Note: `throwIO $ userError "CONFIG_DIRS cannot be empty"` is replaced with actually throwing an exception`throw new Error('CONFIG_DIRS cannot be empty')`. Should I use Either for my example or just make a note of it and move on.
 
+**haskell**
 ```haskell
 getConfigurationDirectories :: IO (NonEmpty FilePath)
 getConfigurationDirectories = do
@@ -256,10 +272,12 @@ main = do
 
 Note that the redundant check in `main` is now completely gone! Instead, we perform the check exactly once, in `getConfigurationDirectories`. It constructs a `NonEmptyArray<A>` from a `A[]` using the `fromArray` function from `fp-ts/NonEmptyArray`, which has the following type:
 
+**typescript**
 ```typescript
 const fromArray: <A>(as: A[]) => O.Option<NonEmptyArray<A>>
 ```
 
+**haskell**
 ```haskell
 nonEmpty :: [a] -> Maybe (NonEmpty a)
 ```
@@ -274,10 +292,12 @@ By strengthening the type of the argument to `head` instead of weakening the typ
 
 What’s more, it’s trivial to recover the old behavior of `head` from the new one by composing `head` with `nonEmpty`:
 
+**typescript**
 ```typescript
 const head_prime = <A>(l: A[]): Option<A> => pipe(fromArray(l), O.map(head))
 ```
 
+**haskell**
 ```haskell
 head' :: [a] -> Maybe a
 head' = fmap head . nonEmpty
@@ -289,6 +309,7 @@ Note that the inverse is *not* true: there is no way to obtain the new version o
 
 You may be wondering what the above example has to do with the title of this blog post. After all, we only examined two different ways to validate that a list was non-empty—no parsing in sight. That interpretation isn’t wrong, but I’d like to propose another perspective: in my mind, the difference between validation and parsing lies almost entirely in how information is preserved. Consider the following pair of functions:
 
+**typescript**
 ```typescript
 const validateNonEmpty = <A>(l: A[]): void => {
   if (l.length === 0) {
@@ -305,6 +326,7 @@ const parseNonEmpty = <A>(l: A[]): void =>
   )
 ```
 
+**haskell**
 ```haskell
 validateNonEmpty :: [a] -> IO ()
 validateNonEmpty (_:_) = pure ()
@@ -361,11 +383,13 @@ My advice: focus on the datatypes.
 
 Suppose you are writing a function that accepts a list of tuples representing key-value pairs, and you suddenly realize you aren’t sure what to do if the list has duplicate keys. One solution would be to write a function that asserts there aren’t any duplicates in the list:
 
+**typescript**
 ```typescript
 type Tuple<K, V> = [K, V]
 type checkNoDuplicateKeys = <K, V>(l: Tuple<K, V>[]) => Either<AppError, void>
 ```
 
+**haskell**
 ```haskell
 checkNoDuplicateKeys :: (MonadError AppError m, Eq k) => [(k, v)] -> m ()
 ```
@@ -374,10 +398,12 @@ However, this check is fragile: it’s extremely easy to forget. Because its ret
 
 Once you’ve done that, the call site of your new function will likely fail to typecheck, since it is still being passed a list of tuples. If the caller was given the value via one of its arguments, or if it received it from the result of some other function, you can continue updating the type from list to `Map`, all the way up the call chain. Eventually, you will either reach the location the value is created, or you’ll find a place where duplicates actually ought to be allowed. At that point, you can insert a call to a modified version of `checkNoDuplicateKeys`:
 
+**typescript**
 ```typescript
 type checkNoDuplicateKeys = <K, V>(l: Tuple<K, V>[]) => Either<AppError, Map<K, V>>
 ```
 
+**haskell**
 ```haskell
 checkNoDuplicateKeys :: (MonadError AppError m, Eq k) => [(k, v)] -> m (Map k v)
 ```
